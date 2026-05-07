@@ -1,0 +1,79 @@
+# 5 services: api, db, redis, celery_worker, celery_beat
+
+services:
+  
+  # --- FastAPI application -----------------------------------
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file: .env
+    # Override CMD to enable hot reload in development
+    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      # Mount source code into container -> change file = server reloads itself
+      # NO mounting in production (use docker-compose.prod.yml)
+      - ./app:/app/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # --- PostgreSQL --------------------------------------------
+  db:
+    image: postgres:16-alpine     # alpine = smaller image
+    env_file: .env
+    environment:
+      # postgres image reads these variables to create DB initially
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgres/data
+    ports:
+      - "5432:5432"     # Expose to connect via DBeaver/pgAdmin local
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --- Redis --------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --- Celery Worker ------------------------------------------
+  # Worker receives task from broker (Redis DB 1) and executes
+  celery_worker:
+    build: .
+    command: uv run celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2
+    env_file: .env
+    volumes:
+      - ./app:/app/app               # Hot reload for tasks in dev
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # --- Celery Beat --------------------------------------------
+  # Beat is scheduler - send periodic tasks into broker according to schedule
+  # Just run 1 instance (running more will send duplicate task)
+  celery_beat:
+    build: .
+    command: uv run celery -A app.tasks.celery_app beat --loglevel=info
+    env_file: .env
+    depends_on:
+      - redis
+
+# Named volumes - data persist when container restart
+volumes:
+  postgres_data:
