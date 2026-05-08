@@ -9,17 +9,17 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-# --- Import Settings and Models ------------------------------------
-# IMPORTANT: Must import Base and all models before using
-# target_metadata for autogenerate to know which tables are available
-from app.core.config import settings
-from app.db.base import Base
-from app.db.models import *     # noqa: F401, F403 - Import all models
-
 # Read config from alembic.ini
 alembic_config = context.config
 if alembic_config.config_file_name is not None:
     fileConfig(alembic_config.config_file_name)
+
+# --- Import Settings and Models ------------------------------------
+# IMPORTANT: Must import Base and all models before using
+# target_metadata for autogenerate to know which tables are available
+from app.core.config import settings  # noqa: E402
+from app.db.base import Base  # noqa: E402
+from app.db.models import *     # noqa: E402, F401, F403 - Import all models
 
 
 # Override DATABASE_URL from .env instead of hardcoding in alembic.ini
@@ -36,7 +36,7 @@ def run_migrations_offline() -> None:
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
-        dialect_opts={"paramstyle": "named"}
+        dialect_opts={"paramstyle": "named"},
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -50,7 +50,7 @@ def do_run_migrations(connection: Connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        compare_type=True,              # Detect column type changes
+        compare_type=True,          # Detect column type changes
         compare_server_default=True,    # Detect default value changes
     )
     with context.begin_transaction():
@@ -59,14 +59,16 @@ def do_run_migrations(connection: Connection) -> None:
 
 async def run_async_migrations() -> None:
     """Create async engine and run migrations."""
+    configuration = alembic_config.get_section(alembic_config.config_ini_section, {})
+    configuration["sqlalchemy.url"] = settings.DATABASE_URL
     connectable = async_engine_from_config(
-        alembic_config.get_section(alembic_config.config_ini_section, {}),
-        prefix="sqlalchemy",
-        poolclass=pool.NullPool    # NullPool: each migration uses 1 connection and then closes
+        configuration,
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,    # NullPool: each migration uses 1 connection and then closes
     )
 
     async with connectable.connect() as connection:
-        # run_async bridges between async connection and sync Alembic context
+        # run_sync bridges between async connection and sync Alembic context
         await connection.run_sync(do_run_migrations)
 
     await connectable.dispose()

@@ -14,6 +14,7 @@ services:
       # Mount source code into container -> change file = server reloads itself
       # NO mounting in production (use docker-compose.prod.yml)
       - ./app:/app/app
+      - ./alembic:/app/alembic
     depends_on:
       db:
         condition: service_healthy
