@@ -1,10 +1,10 @@
 # Entry point of FastAPI application.
-# Phase 1: Just health check, routers will be added in Phase 3
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.api.v1 import auth
 
 
 app = FastAPI(
@@ -29,10 +29,9 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# --- Routers will be included gradually ---------------------------------
+# --- Routers ----------------------------------------------------
 # from app.api.v1 import auth, groups, expenses, settlements
-# app.include_router(auth.router, prefix="/api/v1")
-# ...
+app.include_router(auth.router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["System"])
