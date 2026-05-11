@@ -3,7 +3,7 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Date, Enum, ForeignKey, Numeric, String
+from sqlalchemy import Boolean, Date, Enum, ForeignKey, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -51,6 +51,9 @@ class Expense(Base):
     # date_happened = when the expense happened (user-provided)
     # created_at (from Base) = when the record was inserted
     date_happened: Mapped[date] = mapped_column(Date, nullable=False)
+
+    # Soft delete - never physically delete expenses to preserve balance history
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relationships
     group: Mapped["Group"] = relationship("Group", back_populates="expenses") # type: ignore # noqa: F821
