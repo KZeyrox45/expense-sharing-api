@@ -12,7 +12,8 @@ from app.schemas.group import (
     InviteMemberRequest,
     MemberResponse
 )
-from app.services import group_service
+from app.schemas.balance import GroupBalanceResponse
+from app.services import group_service, balance_service
 
 router = APIRouter(prefix="/groups", tags=["Groups"])
 
@@ -143,3 +144,16 @@ async def leave_group(
     current_user: User = Depends(get_current_active_user)
 ):
     await group_service.leave_group(db, group_id, current_user.id)
+
+
+@router.get(
+    "/{group_id}/balances",
+    response_model=GroupBalanceResponse,
+    summary="Get net balances and simplified debt transactions for a group",
+)
+async def get_group_balances(
+    group_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    return await balance_service.get_group_balances(db, group_id, current_user.id)
