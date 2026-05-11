@@ -1,6 +1,6 @@
 import uuid
 from collections import defaultdict
-from decimal import Decimal
+from decimal import ROUND_DOWN, Decimal
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -183,7 +183,7 @@ def _simplify_debts(
             break
 
         # Settle the smaller of the two amounts
-        settle_amount = min(credit, abs(debt)).quantize(Decimal("0.01"))
+        settle_amount = min(credit, abs(debt)).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
 
         results.append((debtor_id, creditor_id, settle_amount))
 

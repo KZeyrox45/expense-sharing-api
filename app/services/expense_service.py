@@ -237,12 +237,20 @@ def _calculate_splits(
         return results
 
     elif split_type == SplitType.exact:
+        # Reject values with more than 2 decimal places.
+        # "Exact" means the caller must know precise monetary amounts.
+        # Silently rounding would be amibugous (33.33 -> 33.33 or 33.34?)
+        for s in splits_input:
+            if s.value.quantize(TWO_PLACES) != s.value: # type: ignore[union-attr]
+                raise ValueError(
+                    f"Exact split values must have at most 2 decimal places, got {s.value}"
+                )
         split_sum = sum(s.value for s in splits_input)  # type: ignore[union-attr]
         if split_sum != total:
             raise ValueError(
                 f"Exact split amounts sum to {split_sum}, expected {total}"
             )
-        return [(s.user_id, s.value, s.value) for s in splits_input]  # type: ignore[union-attr]
+        return [(s.user_id, s.value, s.value) for s in splits_input]    # type: ignore[union-attr]
 
     elif split_type == SplitType.percentage:
         pct_sum = sum(s.value for s in splits_input)  # type: ignore[union-attr]
