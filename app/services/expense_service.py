@@ -85,6 +85,22 @@ async def create_expense(
 
     await db.commit()
 
+    # Trigger email notification asynchronously via Celery.
+    # Late import prevents circular: expense_service <-> email_tasks.
+    # .delay() sends the task to Redis broker and returns immediately,
+    # the API response is not blocked by email sending.
+    try:
+        from app.tasks.email_tasks import send_expense_notification
+        send_expense_notification.delay(
+            str(expense.id),
+            str(group_id)
+        )
+    except Exception as exc:
+        # Email failure must never break the API response.
+        # Log and continue - the expense was already committed.
+        import logging
+        logging.getLogger(__name__).error(f"Failed to queue expense notification: {exc}")
+
     # Re-fetch with all relationships loaded for the response
     return await _get_expense_with_relations(db, expense.id)
 

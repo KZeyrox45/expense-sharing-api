@@ -51,8 +51,17 @@ async def create_settlement(
     db.add(settlement)
     await db.commit()
 
-    # Re-fetch with user relationships loaded for the response
-    return await _get_settlement_with_relations(db, settlement.id)
+    # Re-fetch first so we have settlement.id for the task
+    settlement = await _get_settlement_with_relations(db, settlement.id)
+
+    try:
+        from app.tasks.email_tasks import send_settlement_notification
+        send_settlement_notification.delay(str(settlement.id))
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error(f"Failed to queue settlement notification: {exc}")
+
+    return settlement
 
 
 async def get_group_settlements(
