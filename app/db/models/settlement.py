@@ -36,7 +36,7 @@ class Settlement(Base):
         nullable=False
     )
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
-    note: Mapped[str] = mapped_column(String(500), nullable=True)
+    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # DB-level constraint: amount must be positive, payer != receiver
     __table_args__ = (
