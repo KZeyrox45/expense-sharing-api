@@ -15,6 +15,7 @@ services:
       # NO mounting in production (use docker-compose.prod.yml)
       - ./app:/app/app
       - ./alembic:/app/alembic
+      - ./tests:/app/tests
     depends_on:
       db:
         condition: service_healthy
