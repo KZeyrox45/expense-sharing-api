@@ -38,10 +38,22 @@ class Settings(BaseSettings):
     MAIL_STARTTLS: bool = True
     MAIL_SSL_TLS: bool = False
 
+    # Comma-separated list of allowed origins for CORS in production.
+    # Example: "https://myapp.com,https://www.myapp.com"
+    ALLOWED_ORIGINS: str = ""
+
     @property
     def is_production(self) -> bool:
         """Helper to check environment, use in logging and error handling."""
         return self.APP_ENV == "production"
+    
+    @property
+    def cors_origins(self) -> list[str]:
+        """Parse ALLOWED_ORIGINS string into a list."""
+        if self.is_production:
+            return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
+        # Allow all in development
+        return ["*"]
     
 
 settings = Settings()
