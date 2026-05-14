@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from jwt.exceptions import InvalidTokenError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,6 +9,7 @@ from app.core.security import create_access_token, create_refresh_token, decode_
 from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, TokenResponse
 from app.schemas.user import UserResponse
 from app.services.auth_service import authenticate_user, get_user_by_id, register_user
+from app.main import limiter
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -19,7 +20,8 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
     status_code=status.HTTP_201_CREATED,
     summary="Register a new user account"
 )
-async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def register(request: Request, data: RegisterRequest, db: AsyncSession = Depends(get_db)):
     try:
         user = await register_user(db, data)
     except ValueError as e:
@@ -32,7 +34,8 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
     response_model=TokenResponse,
     summary="Login and receive JWT tokens"
 )
-async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def login(request: Request, data: LoginRequest, db: AsyncSession = Depends(get_db)):
     user = await authenticate_user(db, data.email, data.password)
 
     # Use a single generic message - don't reveal whether email or password is wrong

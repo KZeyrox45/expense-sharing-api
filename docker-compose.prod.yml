@@ -1,0 +1,82 @@
+# Differences from docker-compose.yml:
+#   - Uses Dockerfile.prod (multi-stage, non-root)
+#   - No source code volume mounts
+#   - No port exposure for DB and Redis (internal network only)
+#   - restart: unless-stopped on all services
+#   - Healthchecks on all services
+
+services:
+  
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    ports:
+      - "8000:8000"   # Only the API is exposed externally
+    env_file: .env.prod
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+  
+  db:
+    image: postgres:16-alpine
+    env_file: .env.prod
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # No ports - DB is NOT accessible from outside Docker network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    # No ports - Redis is NOT accessible from outside Docker network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=4
+    env_file: .env.prod
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    command: celery -A app.tasks.celery_app beat --loglevel=info
+    env_file: .env.prod
+    restart: unless-stopped
+    depends_on:
+      - redis
+
+
+volumes:
+  postgres_data:
